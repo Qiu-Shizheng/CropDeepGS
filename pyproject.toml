@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cropdeepgs"
+version = "0.1.0"
+description = "A unified deep learning framework for crop genomic prediction with genotype and prediction-time context features."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+  {name = "CropDeepGS developers"}
+]
+dependencies = [
+  "numpy>=1.23",
+  "pandas>=1.5",
+  "scikit-learn>=1.2",
+  "torch>=2.0"
+]
+
+[project.scripts]
+cropdeepgs = "cropdeepgs.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cropdeepgs*"]
