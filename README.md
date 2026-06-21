@@ -1,6 +1,6 @@
 # CropDeepGS
 
-CropDeepGS is a unified deep learning framework for crop genomic prediction. It predicts quantitative crop traits from genome-wide marker data and, when available, numeric or categorical environmental descriptor variables such as soil, weather or management measurements.
+CropDeepGS is a unified deep learning framework for crop genomic prediction. It predicts quantitative crop traits from genome-wide marker data and, when available, measured environmental covariates such as soil, weather, irrigation, fertilizer or management variables.
 
 This public repository is the user-facing software release. It does not include the large public datasets used in the manuscript, because those resources are hosted by their original repositories and may have separate download terms.
 
@@ -9,11 +9,11 @@ This public repository is the user-facing software release. It does not include 
 CropDeepGS contains four components:
 
 1. A genotype encoder for SNP dosage, marker, or other genome-wide numeric features.
-2. An optional environmental descriptor encoder for soil, weather, irrigation, fertilizer, or management variables.
+2. An optional environmental covariate encoder for soil, weather, irrigation, fertilizer, or management variables.
 3. A gated genotype-by-environment interaction block.
 4. An additive genomic shortcut that keeps a stable linear genomic signal.
 
-If no environmental descriptor columns are supplied, CropDeepGS automatically runs as a genotype-only model.
+If no environmental covariate columns are supplied, CropDeepGS automatically runs as a genotype-only model.
 
 ## Installation
 
@@ -45,14 +45,14 @@ Markers may be SNP dosages coded as `0/1/2`, imputed marker values, or other num
 
 ### Phenotype Table
 
-The phenotype table must contain the same sample identifier column and one target trait column. Environmental descriptor columns are optional.
+The phenotype table must contain the same sample identifier column and one target trait column. Environmental covariate columns are optional.
 
 | sample_id | yield | year | soil_n | rain_mm | irrigation | line_group |
 |---|---:|---:|---:|---:|---|---|
 | line_001 | 5.42 | 2023 | 0.12 | 141.3 | standard | line_001 |
 | line_002 | 4.88 | 2024 | -0.36 | 109.7 | low | line_002 |
 
-Use `--year-col` only for leave-one-year evaluation. The year column is used to define the held-out year and is not automatically used as an input feature. Only columns listed in `--env-cols` are used as environmental descriptors.
+Use `--year-col` only for leave-one-year evaluation. The year column is used to define the held-out year and is not automatically used as an input feature. Only columns listed in `--env-cols` are used as environmental covariates.
 
 Do not include phenotype-derived columns as model inputs. Examples to avoid include adjusted residuals from the target trait, target test labels, or any column calculated from the trait you want to predict.
 
@@ -98,10 +98,10 @@ cropdeepgs \
 | Argument | Meaning |
 |---|---|
 | `--genotype` | Genotype table with marker columns. |
-| `--phenotype` | Phenotype table with the target trait and optional environmental descriptor columns. |
+| `--phenotype` | Phenotype table with the target trait and optional environmental covariate columns. |
 | `--trait` | Trait column to predict. |
 | `--sample-col` | Shared sample identifier column. Default: `sample_id`. |
-| `--env-cols` | Comma-separated environmental descriptor columns. Leave empty for genotype-only prediction. |
+| `--env-cols` | Comma-separated environmental covariate columns. Leave empty for genotype-only prediction. |
 | `--group-col` | Group used for five-fold validation. Use line, accession, hybrid, or another genetic-entry identifier when repeated records exist. |
 | `--year-col` | Year column for leave-one-year evaluation. |
 | `--eval` | `fivefold`, `leave-year`, or both separated by commas. |
@@ -123,7 +123,7 @@ Reported metrics include RMSE, MAE, Pearson correlation, R2 and NRMSEP. NRMSEP i
 
 ## Good Practice
 
-Use grouped validation when the same genotype has multiple records. Use leave-one-year evaluation when you want to test temporal transfer. Provide environmental descriptor columns only when they are true soil, weather or management measurements available before phenotyping.
+Use grouped validation when the same genotype has multiple records. Use leave-one-year evaluation when you want to test temporal transfer. Provide environmental covariate columns only when they are true soil, weather or management measurements available before phenotyping.
 
 ## Citation
 

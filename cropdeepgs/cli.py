@@ -148,7 +148,7 @@ def run(args) -> None:
     env_cols = parse_cols(args.env_cols)
     missing_env = [c for c in env_cols if c not in data.columns]
     if missing_env:
-        raise ValueError(f"Missing environmental descriptor columns: {missing_env}")
+        raise ValueError(f"Missing environmental covariate columns: {missing_env}")
     evals = parse_cols(args.eval)
     splits = make_splits(data, args.sample_col, args.group_col, args.year_col, evals, args.folds)
     if not splits:
@@ -192,7 +192,7 @@ def run(args) -> None:
         "phenotype": str(args.phenotype),
         "sample_col": args.sample_col,
         "trait": args.trait,
-        "environment_descriptor_cols": env_cols,
+        "environment_covariate_cols": env_cols,
         "marker_count": len(marker_cols),
         "records": len(data),
         "splits": len(splits),
@@ -205,10 +205,10 @@ def run(args) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Train CropDeepGS on genotype and phenotype tables.")
     parser.add_argument("--genotype", required=True, help="CSV/TSV table with sample_id and numeric marker columns.")
-    parser.add_argument("--phenotype", required=True, help="CSV/TSV table with sample_id, trait and optional environmental descriptor columns.")
+    parser.add_argument("--phenotype", required=True, help="CSV/TSV table with sample_id, trait and optional environmental covariate columns.")
     parser.add_argument("--trait", required=True, help="Trait column in the phenotype table.")
     parser.add_argument("--sample-col", default="sample_id", help="Shared sample identifier column.")
-    parser.add_argument("--env-cols", default="", help="Comma-separated environmental descriptor columns, e.g. soil_n,rain_mm,irrigation.")
+    parser.add_argument("--env-cols", default="", help="Comma-separated environmental covariate columns, e.g. soil_n,rain_mm,irrigation.")
     parser.add_argument("--group-col", default=None, help="Column used to keep related records together in five-fold validation. Defaults to sample column.")
     parser.add_argument("--year-col", default=None, help="Year column for leave-year validation.")
     parser.add_argument("--eval", default="fivefold", help="Comma-separated protocols: fivefold,leave-year.")

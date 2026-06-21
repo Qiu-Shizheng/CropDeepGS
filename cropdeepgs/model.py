@@ -5,9 +5,9 @@ import torch
 
 
 class CropDeepGSNet(torch.nn.Module):
-    """Crop genomic prediction network with optional environmental descriptors.
+    """Crop genomic prediction network with optional environmental covariates.
 
-    The model has four parts: a genotype encoder, an environmental descriptor
+    The model has four parts: a genotype encoder, an environmental covariate
     encoder, a gated genotype-by-environment block and a small additive genomic
     shortcut.
     """
