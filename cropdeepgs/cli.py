@@ -50,27 +50,27 @@ def fit_genotype_transform(x_train: np.ndarray, x_test: np.ndarray, n_components
     return pca.fit_transform(xtr).astype(np.float32), pca.transform(xte).astype(np.float32)
 
 
-def fit_context_transform(train: pd.DataFrame, test: pd.DataFrame, cols: list[str]) -> tuple[np.ndarray, np.ndarray]:
+def fit_environment_transform(train: pd.DataFrame, test: pd.DataFrame, cols: list[str]) -> tuple[np.ndarray, np.ndarray]:
     if not cols:
         return np.zeros((len(train), 0), dtype=np.float32), np.zeros((len(test), 0), dtype=np.float32)
-    train_ctx = train[cols].copy()
-    test_ctx = test[cols].copy()
-    numeric_cols = [c for c in cols if pd.api.types.is_numeric_dtype(train_ctx[c])]
+    train_env = train[cols].copy()
+    test_env = test[cols].copy()
+    numeric_cols = [c for c in cols if pd.api.types.is_numeric_dtype(train_env[c])]
     categorical_cols = [c for c in cols if c not in numeric_cols]
     blocks_train: list[np.ndarray] = []
     blocks_test: list[np.ndarray] = []
     if numeric_cols:
         scaler = StandardScaler()
-        blocks_train.append(scaler.fit_transform(train_ctx[numeric_cols].astype(float)).astype(np.float32))
-        blocks_test.append(scaler.transform(test_ctx[numeric_cols].astype(float)).astype(np.float32))
+        blocks_train.append(scaler.fit_transform(train_env[numeric_cols].astype(float)).astype(np.float32))
+        blocks_test.append(scaler.transform(test_env[numeric_cols].astype(float)).astype(np.float32))
     for col in categorical_cols:
-        levels = sorted(train_ctx[col].astype(str).fillna("NA").unique().tolist())
+        levels = sorted(train_env[col].astype(str).fillna("NA").unique().tolist())
         mapping = {v: i for i, v in enumerate(levels)}
-        tr = np.zeros((len(train_ctx), len(levels)), dtype=np.float32)
-        te = np.zeros((len(test_ctx), len(levels)), dtype=np.float32)
-        for i, val in enumerate(train_ctx[col].astype(str).fillna("NA")):
+        tr = np.zeros((len(train_env), len(levels)), dtype=np.float32)
+        te = np.zeros((len(test_env), len(levels)), dtype=np.float32)
+        for i, val in enumerate(train_env[col].astype(str).fillna("NA")):
             tr[i, mapping[val]] = 1.0
-        for i, val in enumerate(test_ctx[col].astype(str).fillna("NA")):
+        for i, val in enumerate(test_env[col].astype(str).fillna("NA")):
             if val in mapping:
                 te[i, mapping[val]] = 1.0
         blocks_train.append(tr)
@@ -78,7 +78,7 @@ def fit_context_transform(train: pd.DataFrame, test: pd.DataFrame, cols: list[st
     return np.hstack(blocks_train).astype(np.float32), np.hstack(blocks_test).astype(np.float32)
 
 
-def train_cropdeepgs(xg_train: np.ndarray, xc_train: np.ndarray, y_train: np.ndarray, xg_test: np.ndarray, xc_test: np.ndarray, args) -> np.ndarray:
+def train_cropdeepgs(xg_train: np.ndarray, xe_train: np.ndarray, y_train: np.ndarray, xg_test: np.ndarray, xe_test: np.ndarray, args) -> np.ndarray:
     set_seed(args.seed)
     device = torch.device(args.device)
     y_mean = float(np.mean(y_train))
@@ -86,10 +86,10 @@ def train_cropdeepgs(xg_train: np.ndarray, xc_train: np.ndarray, y_train: np.nda
     if y_std <= 0:
         return np.full(len(xg_test), y_mean)
     y_scaled = (y_train - y_mean) / y_std
-    model = CropDeepGSNet(xg_train.shape[1], xc_train.shape[1], args.hidden, args.dropout, args.shortcut_scale).to(device)
+    model = CropDeepGSNet(xg_train.shape[1], xe_train.shape[1], args.hidden, args.dropout, args.shortcut_scale).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     xg = torch.tensor(xg_train, dtype=torch.float32, device=device)
-    xc = torch.tensor(xc_train, dtype=torch.float32, device=device)
+    xe = torch.tensor(xe_train, dtype=torch.float32, device=device)
     y = torch.tensor(y_scaled, dtype=torch.float32, device=device)
     n = len(y)
     rng = np.random.default_rng(args.seed)
@@ -98,16 +98,16 @@ def train_cropdeepgs(xg_train: np.ndarray, xc_train: np.ndarray, y_train: np.nda
         for start in range(0, n, args.batch_size):
             idx = torch.tensor(order[start : start + args.batch_size], dtype=torch.long, device=device)
             optimizer.zero_grad(set_to_none=True)
-            loss = torch.nn.functional.mse_loss(model(xg[idx], xc[idx]), y[idx])
+            loss = torch.nn.functional.mse_loss(model(xg[idx], xe[idx]), y[idx])
             loss.backward()
             optimizer.step()
     model.eval()
     preds = []
     with torch.no_grad():
         tg = torch.tensor(xg_test, dtype=torch.float32)
-        tc = torch.tensor(xc_test, dtype=torch.float32)
+        te = torch.tensor(xe_test, dtype=torch.float32)
         for start in range(0, len(tg), args.batch_size * 8):
-            preds.append(model(tg[start : start + args.batch_size * 8].to(device), tc[start : start + args.batch_size * 8].to(device)).cpu().numpy())
+            preds.append(model(tg[start : start + args.batch_size * 8].to(device), te[start : start + args.batch_size * 8].to(device)).cpu().numpy())
     return np.concatenate(preds) * y_std + y_mean
 
 
@@ -145,10 +145,10 @@ def run(args) -> None:
     marker_cols = [c for c in geno.columns if c != args.sample_col]
     data = pheno.merge(geno, on=args.sample_col, how="inner")
     data = data.dropna(subset=[args.trait]).reset_index(drop=True)
-    context_cols = parse_cols(args.context_cols)
-    missing_context = [c for c in context_cols if c not in data.columns]
-    if missing_context:
-        raise ValueError(f"Missing context columns: {missing_context}")
+    env_cols = parse_cols(args.env_cols)
+    missing_env = [c for c in env_cols if c not in data.columns]
+    if missing_env:
+        raise ValueError(f"Missing environmental descriptor columns: {missing_env}")
     evals = parse_cols(args.eval)
     splits = make_splits(data, args.sample_col, args.group_col, args.year_col, evals, args.folds)
     if not splits:
@@ -159,17 +159,17 @@ def run(args) -> None:
         train = data.iloc[train_idx].copy()
         test = data.iloc[test_idx].copy()
         xg_train, xg_test = fit_genotype_transform(train[marker_cols].to_numpy(float), test[marker_cols].to_numpy(float), args.snp_pcs)
-        xc_train, xc_test = fit_context_transform(train, test, context_cols)
+        xe_train, xe_test = fit_environment_transform(train, test, env_cols)
         y_train = train[args.trait].to_numpy(float)
         y_test = test[args.trait].to_numpy(float)
-        crop_pred = train_cropdeepgs(xg_train, xc_train, y_train, xg_test, xc_test, args)
+        crop_pred = train_cropdeepgs(xg_train, xe_train, y_train, xg_test, xe_test, args)
         metrics.append(metric_row(y_test, crop_pred, "CropDeepGS", protocol, split_name))
         for sid, yt, yp in zip(test[args.sample_col], y_test, crop_pred):
             predictions.append({"sample_id": sid, "protocol": protocol, "split": split_name, "model": "CropDeepGS", "y_true": yt, "y_pred": yp})
         if args.baselines:
             if "ridge" in parse_cols(args.baselines):
-                xtr = np.hstack([xg_train, xc_train])
-                xte = np.hstack([xg_test, xc_test])
+                xtr = np.hstack([xg_train, xe_train])
+                xte = np.hstack([xg_test, xe_test])
                 pred = RidgeCV(alphas=np.logspace(-4, 5, 12)).fit(xtr, y_train).predict(xte)
                 metrics.append(metric_row(y_test, pred, "Ridge", protocol, split_name))
             if "gblup" in parse_cols(args.baselines):
@@ -192,7 +192,7 @@ def run(args) -> None:
         "phenotype": str(args.phenotype),
         "sample_col": args.sample_col,
         "trait": args.trait,
-        "context_cols": context_cols,
+        "environment_descriptor_cols": env_cols,
         "marker_count": len(marker_cols),
         "records": len(data),
         "splits": len(splits),
@@ -205,10 +205,10 @@ def run(args) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Train CropDeepGS on genotype and phenotype tables.")
     parser.add_argument("--genotype", required=True, help="CSV/TSV table with sample_id and numeric marker columns.")
-    parser.add_argument("--phenotype", required=True, help="CSV/TSV table with sample_id, trait and optional context columns.")
+    parser.add_argument("--phenotype", required=True, help="CSV/TSV table with sample_id, trait and optional environmental descriptor columns.")
     parser.add_argument("--trait", required=True, help="Trait column in the phenotype table.")
     parser.add_argument("--sample-col", default="sample_id", help="Shared sample identifier column.")
-    parser.add_argument("--context-cols", default="", help="Comma-separated prediction-time context columns, e.g. location,year,maturity_group.")
+    parser.add_argument("--env-cols", default="", help="Comma-separated environmental descriptor columns, e.g. soil_n,rain_mm,irrigation.")
     parser.add_argument("--group-col", default=None, help="Column used to keep related records together in five-fold validation. Defaults to sample column.")
     parser.add_argument("--year-col", default=None, help="Year column for leave-year validation.")
     parser.add_argument("--eval", default="fivefold", help="Comma-separated protocols: fivefold,leave-year.")

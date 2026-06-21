@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python examples/simulate_data.py
+PYTHON_BIN="${PYTHON:-python}"
+CROPDEEPGS_BIN="${CROPDEEPGS:-cropdeepgs}"
 
-cropdeepgs \
+"$PYTHON_BIN" examples/simulate_data.py
+
+"$CROPDEEPGS_BIN" \
   --genotype examples/simulated_genotypes.tsv \
   --phenotype examples/simulated_phenotypes.tsv \
   --trait yield \
   --sample-col sample_id \
-  --context-cols location,maturity_group \
+  --env-cols soil_n,rain_mm,irrigation \
   --group-col line_group \
   --year-col year \
   --eval fivefold,leave-year \

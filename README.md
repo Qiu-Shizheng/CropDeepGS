@@ -1,23 +1,21 @@
 # CropDeepGS
 
-CropDeepGS is a unified deep learning framework for crop genomic prediction. It predicts quantitative crop traits from genome-wide marker data and optional prediction-time context, such as location, maturity group, soil, weather or management variables.
+CropDeepGS is a unified deep learning framework for crop genomic prediction. It predicts quantitative crop traits from genome-wide marker data and, when available, numeric or categorical environmental descriptor variables such as soil, weather or management measurements.
 
-The public release is intended for users who want to train CropDeepGS on their own crop genotype and phenotype tables. It does not include raw public datasets from the manuscript because many public breeding datasets have their own repository terms and large file sizes.
+This public repository is the user-facing software release. It does not include the large public datasets used in the manuscript, because those resources are hosted by their original repositories and may have separate download terms.
 
-## What the Model Does
+## Model Overview
 
-CropDeepGS uses four components:
+CropDeepGS contains four components:
 
-1. A genotype encoder for SNP or marker features.
-2. A context encoder for variables known before phenotyping.
-3. A gated genotype-by-context interaction block.
-4. An additive genomic shortcut that keeps a stable GBLUP-like signal.
+1. A genotype encoder for SNP dosage, marker, or other genome-wide numeric features.
+2. An optional environmental descriptor encoder for soil, weather, irrigation, fertilizer, or management variables.
+3. A gated genotype-by-environment interaction block.
+4. An additive genomic shortcut that keeps a stable linear genomic signal.
 
-The command line tool reports RMSE, MAE, Pearson correlation, R2 and NRMSEP. NRMSEP is RMSE divided by the standard deviation of the observed test-set phenotype, so lower values are better.
+If no environmental descriptor columns are supplied, CropDeepGS automatically runs as a genotype-only model.
 
 ## Installation
-
-Create a clean Python environment, then install the package:
 
 ```bash
 git clone https://github.com/Qiu-Shizheng/CropDeepGS.git
@@ -28,43 +26,45 @@ pip install --upgrade pip
 pip install -e .
 ```
 
-GPU training is optional. If your local PyTorch installation does not support CUDA, use `--device cpu`.
+GPU training is optional. Use `--device cpu` if CUDA is not available.
 
 ## Input Files
 
-CropDeepGS expects two tabular files. CSV and TSV are both accepted.
+CropDeepGS accepts CSV or TSV files.
 
 ### Genotype Table
 
-The genotype file must contain one sample identifier column and numeric marker columns:
+The genotype table must contain one sample identifier column and numeric marker columns.
 
 | sample_id | snp_0001 | snp_0002 | snp_0003 |
 |---|---:|---:|---:|
 | line_001 | 0 | 1 | 2 |
 | line_002 | 2 | 1 | 0 |
 
-Markers can be SNP dosages coded as `0/1/2`, imputed marker values, or other numeric genome-wide features. The software standardizes markers and reduces them to genotype principal components inside each training split.
+Markers may be SNP dosages coded as `0/1/2`, imputed marker values, or other numeric genome-wide features.
 
 ### Phenotype Table
 
-The phenotype file must contain the same sample identifier column, one trait column and optional context columns:
+The phenotype table must contain the same sample identifier column and one target trait column. Environmental descriptor columns are optional.
 
-| sample_id | yield | location | year | maturity_group |
-|---|---:|---|---:|---|
-| line_001 | 5.42 | LOC_A | 2023 | MG2 |
-| line_002 | 4.88 | LOC_B | 2023 | MG1 |
+| sample_id | yield | year | soil_n | rain_mm | irrigation | line_group |
+|---|---:|---:|---:|---:|---|---|
+| line_001 | 5.42 | 2023 | 0.12 | 141.3 | standard | line_001 |
+| line_002 | 4.88 | 2024 | -0.36 | 109.7 | low | line_002 |
 
-Context columns should only include information that is known before phenotyping. Do not include sample IDs, trial IDs, historical trait means, adjusted residuals, target test labels or any column derived from the phenotype you are trying to predict.
+Use `--year-col` only for leave-one-year evaluation. The year column is used to define the held-out year and is not automatically used as an input feature. Only columns listed in `--env-cols` are used as environmental descriptors.
+
+Do not include phenotype-derived columns as model inputs. Examples to avoid include adjusted residuals from the target trait, target test labels, or any column calculated from the trait you want to predict.
 
 ## Quick Example
 
-Generate a small simulated dataset and run CropDeepGS on CPU:
+Run a small simulated example on CPU:
 
 ```bash
 bash examples/run_example.sh
 ```
 
-The command creates:
+The example creates:
 
 ```text
 examples/simulated_genotypes.tsv
@@ -77,15 +77,13 @@ results/simulated_example/run_config.json
 
 ## Train on Your Own Data
 
-Example command:
-
 ```bash
 cropdeepgs \
   --genotype my_genotypes.tsv \
   --phenotype my_phenotypes.tsv \
   --trait grain_yield \
   --sample-col sample_id \
-  --context-cols location,maturity_group \
+  --env-cols soil_n,rain_mm,irrigation \
   --group-col line_id \
   --year-col year \
   --eval fivefold,leave-year \
@@ -95,18 +93,18 @@ cropdeepgs \
   --out results/my_cropdeepgs_run
 ```
 
-Arguments:
+## Main Arguments
 
 | Argument | Meaning |
 |---|---|
 | `--genotype` | Genotype table with marker columns. |
-| `--phenotype` | Phenotype table with the target trait and optional context columns. |
+| `--phenotype` | Phenotype table with the target trait and optional environmental descriptor columns. |
 | `--trait` | Trait column to predict. |
 | `--sample-col` | Shared sample identifier column. Default: `sample_id`. |
-| `--context-cols` | Comma-separated context columns. Leave empty if no context is available. |
-| `--group-col` | Group used for five-fold validation. Use line/accession/hybrid ID to avoid leakage. |
-| `--year-col` | Year column for leave-one-year validation. |
-| `--eval` | `fivefold`, `leave-year`, or both. |
+| `--env-cols` | Comma-separated environmental descriptor columns. Leave empty for genotype-only prediction. |
+| `--group-col` | Group used for five-fold validation. Use line, accession, hybrid, or another genetic-entry identifier when repeated records exist. |
+| `--year-col` | Year column for leave-one-year evaluation. |
+| `--eval` | `fivefold`, `leave-year`, or both separated by commas. |
 | `--snp-pcs` | Number of genotype principal components. |
 | `--device` | `cuda` or `cpu`. |
 | `--baselines` | Optional baselines: `ridge,gblup`. Use an empty string to disable baselines. |
@@ -114,12 +112,19 @@ Arguments:
 
 ## Output Files
 
-`summary_metrics.tsv` reports average metrics by model and protocol. `split_metrics.tsv` reports metrics for every fold or held-out year. `predictions.tsv` contains observed and predicted trait values for each test record. `run_config.json` records the input columns and model settings used in the run.
+| File | Contents |
+|---|---|
+| `summary_metrics.tsv` | Mean metrics by model and evaluation protocol. |
+| `split_metrics.tsv` | Metrics for every fold or held-out year. |
+| `predictions.tsv` | Observed and predicted trait values for each test record. |
+| `run_config.json` | Input columns and model settings used in the run. |
+
+Reported metrics include RMSE, MAE, Pearson correlation, R2 and NRMSEP. NRMSEP is RMSE divided by the standard deviation of the observed test-set phenotype, so lower values are better.
 
 ## Good Practice
 
-Use grouped validation whenever the same genotype has multiple records. Use leave-one-year validation when testing temporal transfer. Do not provide trial identifiers or phenotype-derived covariates as context features. If leave-one-year validation is used, avoid using the held-out year itself as a model feature unless the year is truly a known deployment covariate in your breeding program.
+Use grouped validation when the same genotype has multiple records. Use leave-one-year evaluation when you want to test temporal transfer. Provide environmental descriptor columns only when they are true soil, weather or management measurements available before phenotyping.
 
 ## Citation
 
-If you use CropDeepGS, please cite the CropDeepGS manuscript or preprint when available. The software release implements the public user-facing training interface for the unified CropDeepGS framework.
+If you use CropDeepGS, please cite the CropDeepGS manuscript or preprint when available.

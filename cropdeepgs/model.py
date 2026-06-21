@@ -5,15 +5,16 @@ import torch
 
 
 class CropDeepGSNet(torch.nn.Module):
-    """Genotype-context genomic prediction network.
+    """Crop genomic prediction network with optional environmental descriptors.
 
-    The model has four parts: a genotype encoder, a context encoder, a gated
-    genotype-context interaction block and a small additive genomic shortcut.
+    The model has four parts: a genotype encoder, an environmental descriptor
+    encoder, a gated genotype-by-environment block and a small additive genomic
+    shortcut.
     """
 
-    def __init__(self, genotype_dim: int, context_dim: int, hidden: int = 192, dropout: float = 0.18, shortcut_scale: float = 0.15):
+    def __init__(self, genotype_dim: int, env_dim: int, hidden: int = 192, dropout: float = 0.18, shortcut_scale: float = 0.15):
         super().__init__()
-        self.context_dim = int(context_dim)
+        self.env_dim = int(env_dim)
         self.shortcut_scale = float(shortcut_scale)
         self.genotype_encoder = torch.nn.Sequential(
             torch.nn.Linear(genotype_dim, hidden),
@@ -23,16 +24,16 @@ class CropDeepGSNet(torch.nn.Module):
             torch.nn.Linear(hidden, hidden),
             torch.nn.GELU(),
         )
-        if context_dim > 0:
-            self.context_encoder = torch.nn.Sequential(
-                torch.nn.Linear(context_dim, hidden),
+        if env_dim > 0:
+            self.env_encoder = torch.nn.Sequential(
+                torch.nn.Linear(env_dim, hidden),
                 torch.nn.LayerNorm(hidden),
                 torch.nn.GELU(),
                 torch.nn.Dropout(dropout),
             )
             self.gate = torch.nn.Sequential(torch.nn.Linear(hidden, hidden), torch.nn.Sigmoid())
         else:
-            self.context_encoder = None
+            self.env_encoder = None
             self.gate = None
         self.shortcut = torch.nn.Linear(genotype_dim, 1)
         self.head = torch.nn.Sequential(
@@ -43,11 +44,11 @@ class CropDeepGSNet(torch.nn.Module):
             torch.nn.Linear(hidden // 2, 1),
         )
 
-    def forward(self, genotype: torch.Tensor, context: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(self, genotype: torch.Tensor, env: torch.Tensor | None = None) -> torch.Tensor:
         z = self.genotype_encoder(genotype)
-        if self.context_encoder is not None and context is not None and context.shape[1] > 0:
-            c = self.context_encoder(context)
-            z = z * (1.0 + self.gate(c)) + c
+        if self.env_encoder is not None and env is not None and env.shape[1] > 0:
+            e = self.env_encoder(env)
+            z = z * (1.0 + self.gate(e)) + e
         pred = self.head(z).squeeze(-1)
         pred = pred + self.shortcut_scale * self.shortcut(genotype).squeeze(-1)
         return pred
