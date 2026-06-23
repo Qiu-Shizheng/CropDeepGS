@@ -1,6 +1,6 @@
 # CropDeepGS
 
-CropDeepGS is a unified deep learning framework for crop genomic prediction. It predicts quantitative crop traits from genome-wide marker data and, when available, measured environmental covariates such as soil, weather, irrigation, fertilizer or management variables.
+CropDeepGS is a unified deep learning framework for crop genomic prediction. It predicts quantitative crop traits from genome-wide marker data and supports two input modes: genotype plus measured environmental covariates, and genotype-only prediction.
 
 This public repository is the user-facing software release. It does not include the large public datasets used in the manuscript, because those resources are hosted by their original repositories and may have separate download terms.
 
@@ -9,11 +9,11 @@ This public repository is the user-facing software release. It does not include 
 CropDeepGS contains four components:
 
 1. A genotype encoder for SNP dosage, marker, or other genome-wide numeric features.
-2. An optional environmental covariate encoder for soil, weather, irrigation, fertilizer, or management variables.
+2. An environmental covariate encoder for measured soil, weather, irrigation, fertilizer, or management variables.
 3. A gated genotype-by-environment interaction block.
 4. An additive genomic shortcut that keeps a stable linear genomic signal.
 
-If no environmental covariate columns are supplied, CropDeepGS automatically runs as a genotype-only model.
+For genotype-plus-environment data, CropDeepGS uses both branches and the gated interaction block. For genotype-only matrices, it uses the same framework through the genomic branch.
 
 ## Installation
 
@@ -26,7 +26,7 @@ pip install --upgrade pip
 pip install -e .
 ```
 
-GPU training is optional. Use `--device cpu` if CUDA is not available.
+CropDeepGS can run on either GPU or CPU. Use `--device cpu` on machines without CUDA.
 
 ## Input Files
 
@@ -45,7 +45,7 @@ Markers may be SNP dosages coded as `0/1/2`, imputed marker values, or other num
 
 ### Phenotype Table
 
-The phenotype table must contain the same sample identifier column and one target trait column. Environmental covariate columns are optional.
+The phenotype table must contain the same sample identifier column and one target trait column. Environmental covariate columns can be supplied for genotype-plus-environment prediction.
 
 | sample_id | yield | year | soil_n | rain_mm | irrigation | line_group |
 |---|---:|---:|---:|---:|---|---|
@@ -98,7 +98,7 @@ cropdeepgs \
 | Argument | Meaning |
 |---|---|
 | `--genotype` | Genotype table with marker columns. |
-| `--phenotype` | Phenotype table with the target trait and optional environmental covariate columns. |
+| `--phenotype` | Phenotype table with the target trait and measured environmental covariate columns. |
 | `--trait` | Trait column to predict. |
 | `--sample-col` | Shared sample identifier column. Default: `sample_id`. |
 | `--env-cols` | Comma-separated environmental covariate columns. Leave empty for genotype-only prediction. |
@@ -107,7 +107,7 @@ cropdeepgs \
 | `--eval` | `fivefold`, `leave-year`, or both separated by commas. |
 | `--snp-pcs` | Number of genotype principal components. |
 | `--device` | `cuda` or `cpu`. |
-| `--baselines` | Optional baselines: `ridge,gblup`. Use an empty string to disable baselines. |
+| `--baselines` | Baselines to run, for example `ridge,gblup`. Use an empty string to disable baselines. |
 | `--out` | Output directory. |
 
 ## Output Files
@@ -123,8 +123,8 @@ Reported metrics include RMSE, MAE, Pearson correlation, R2 and NRMSEP. NRMSEP i
 
 ## Good Practice
 
-Use grouped validation when the same genotype has multiple records. Use leave-one-year evaluation when you want to test temporal transfer. Provide environmental covariate columns only when they are true soil, weather or management measurements available before phenotyping.
+Use grouped validation when the same genotype has multiple records. Use leave-one-year evaluation when you want to test temporal transfer. Environmental covariate columns should be true soil, weather or management measurements known before phenotyping.
 
 ## Citation
 
-If you use CropDeepGS, please cite the CropDeepGS manuscript or preprint when available.
+If you use CropDeepGS, please cite the CropDeepGS manuscript or preprint.
