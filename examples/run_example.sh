@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PYTHON_BIN="${PYTHON:-python}"
+PYTHON_BIN="${PYTHON:-python3}"
 CROPDEEPGS_BIN="${CROPDEEPGS:-cropdeepgs}"
 
 "$PYTHON_BIN" examples/simulate_data.py

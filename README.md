@@ -10,17 +10,19 @@ CropDeepGS contains four components:
 
 1. A genotype encoder for SNP dosage, marker, or other genome-wide numeric features.
 2. An environmental covariate encoder for measured soil, weather, irrigation, fertilizer, or management variables.
-3. A gated genotype-by-environment interaction block.
+3. A gated genotype-by-environment interaction block using the genotype state, the environment state, their element-wise product and their absolute difference.
 4. An additive genomic shortcut that keeps a stable linear genomic signal.
 
 For genotype-plus-environment data, CropDeepGS uses both branches and the gated interaction block. For genotype-only matrices, it uses the same framework through the genomic branch.
 
 ## Installation
 
+CropDeepGS requires Python 3.9 or later.
+
 ```bash
 git clone https://github.com/Qiu-Shizheng/CropDeepGS.git
 cd CropDeepGS
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -e .
@@ -87,8 +89,13 @@ cropdeepgs \
   --group-col line_id \
   --year-col year \
   --eval fivefold,leave-year \
-  --snp-pcs 128 \
-  --epochs 80 \
+  --snp-pcs 256 \
+  --hidden 448 \
+  --dropout 0.30 \
+  --shortcut-scale 0.03 \
+  --interaction-scale 0.10 \
+  --head-depth 2 \
+  --epochs 180 \
   --device cuda \
   --out results/my_cropdeepgs_run
 ```
@@ -106,9 +113,16 @@ cropdeepgs \
 | `--year-col` | Year column for leave-one-year evaluation. |
 | `--eval` | `fivefold`, `leave-year`, or both separated by commas. |
 | `--snp-pcs` | Number of genotype principal components. |
+| `--hidden` | Hidden dimension of the genotype and environmental covariate encoders. |
+| `--dropout` | Dropout rate in the prediction head. |
+| `--shortcut-scale` | Weight applied to the additive genomic shortcut. |
+| `--interaction-scale` | Weight applied to the explicit genotype-by-environment product term. |
+| `--head-depth` | Number of hidden layers in the prediction head. |
 | `--device` | `cuda` or `cpu`. |
 | `--baselines` | Baselines to run, for example `ridge,gblup`. Use an empty string to disable baselines. |
 | `--out` | Output directory. |
+
+The manuscript configuration used `--snp-pcs 256`, `--hidden 448`, `--dropout 0.30`, `--shortcut-scale 0.03`, `--interaction-scale 0.10`, `--head-depth 2` and five random seeds. The command-line release trains one seed by default for simplicity; repeat runs with different `--seed` values and average predictions if an ensemble is desired.
 
 ## Output Files
 

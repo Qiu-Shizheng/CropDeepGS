@@ -86,7 +86,15 @@ def train_cropdeepgs(xg_train: np.ndarray, xe_train: np.ndarray, y_train: np.nda
     if y_std <= 0:
         return np.full(len(xg_test), y_mean)
     y_scaled = (y_train - y_mean) / y_std
-    model = CropDeepGSNet(xg_train.shape[1], xe_train.shape[1], args.hidden, args.dropout, args.shortcut_scale).to(device)
+    model = CropDeepGSNet(
+        xg_train.shape[1],
+        xe_train.shape[1],
+        args.hidden,
+        args.dropout,
+        args.shortcut_scale,
+        args.interaction_scale,
+        args.head_depth,
+    ).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     xg = torch.tensor(xg_train, dtype=torch.float32, device=device)
     xe = torch.tensor(xe_train, dtype=torch.float32, device=device)
@@ -98,8 +106,9 @@ def train_cropdeepgs(xg_train: np.ndarray, xe_train: np.ndarray, y_train: np.nda
         for start in range(0, n, args.batch_size):
             idx = torch.tensor(order[start : start + args.batch_size], dtype=torch.long, device=device)
             optimizer.zero_grad(set_to_none=True)
-            loss = torch.nn.functional.mse_loss(model(xg[idx], xe[idx]), y[idx])
+            loss = torch.nn.functional.smooth_l1_loss(model(xg[idx], xe[idx]), y[idx], beta=0.5)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
             optimizer.step()
     model.eval()
     preds = []
@@ -196,7 +205,14 @@ def run(args) -> None:
         "marker_count": len(marker_cols),
         "records": len(data),
         "splits": len(splits),
-        "model": {"hidden": args.hidden, "dropout": args.dropout, "shortcut_scale": args.shortcut_scale, "epochs": args.epochs},
+        "model": {
+            "hidden": args.hidden,
+            "dropout": args.dropout,
+            "shortcut_scale": args.shortcut_scale,
+            "interaction_scale": args.interaction_scale,
+            "head_depth": args.head_depth,
+            "epochs": args.epochs,
+        },
     }
     (out / "run_config.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(summary.to_string(index=False))
@@ -213,11 +229,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--year-col", default=None, help="Year column for leave-year validation.")
     parser.add_argument("--eval", default="fivefold", help="Comma-separated protocols: fivefold,leave-year.")
     parser.add_argument("--folds", type=int, default=5)
-    parser.add_argument("--snp-pcs", type=int, default=128)
-    parser.add_argument("--hidden", type=int, default=192)
-    parser.add_argument("--dropout", type=float, default=0.18)
-    parser.add_argument("--shortcut-scale", type=float, default=0.15)
-    parser.add_argument("--epochs", type=int, default=80)
+    parser.add_argument("--snp-pcs", type=int, default=256)
+    parser.add_argument("--hidden", type=int, default=448)
+    parser.add_argument("--dropout", type=float, default=0.30)
+    parser.add_argument("--shortcut-scale", type=float, default=0.03)
+    parser.add_argument("--interaction-scale", type=float, default=0.10)
+    parser.add_argument("--head-depth", type=int, default=2)
+    parser.add_argument("--epochs", type=int, default=180)
     parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--lr", type=float, default=8e-4)
     parser.add_argument("--weight-decay", type=float, default=3e-4)
