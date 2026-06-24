@@ -102,7 +102,7 @@ cropdeepgs \
 | `--trait` | Trait column to predict. |
 | `--sample-col` | Shared sample identifier column. Default: `sample_id`. |
 | `--env-cols` | Comma-separated environmental covariate columns. Leave empty for genotype-only prediction. |
-| `--group-col` | Group used for five-fold validation. Use line, accession, hybrid, or another genetic-entry identifier when repeated records exist. |
+| `--group-col` | Identifier used to keep all records from the same line, accession, or hybrid in the same fold during five-fold validation. |
 | `--year-col` | Year column for leave-one-year evaluation. |
 | `--eval` | `fivefold`, `leave-year`, or both separated by commas. |
 | `--snp-pcs` | Number of genotype principal components. |
@@ -114,7 +114,7 @@ cropdeepgs \
 
 | File | Contents |
 |---|---|
-| `summary_metrics.tsv` | Mean metrics by model and evaluation protocol. |
+| `summary_metrics.tsv` | Mean metrics by model and evaluation setting. |
 | `split_metrics.tsv` | Metrics for every fold or held-out year. |
 | `predictions.tsv` | Observed and predicted trait values for each test record. |
 | `run_config.json` | Input columns and model settings used in the run. |
