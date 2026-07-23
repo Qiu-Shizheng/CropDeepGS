@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cropdeepgs"
+version = "0.1.0"
+description = "Deep-learning genomic prediction for crops using SNP and optional environmental data."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+  {name = "CropDeepGS developers"}
+]
+dependencies = [
+  "numpy>=1.23",
+  "pandas>=1.5",
+  "scikit-learn>=1.2",
+  "torch>=2.0"
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=7.0"
+]
+
+[project.scripts]
+cropdeepgs = "cropdeepgs.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cropdeepgs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
